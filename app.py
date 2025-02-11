@@ -5,33 +5,33 @@ import pandas as pd
 def process_charge_report(files):
     results = []
     for file in files:
-        df = pd.read_excel(file, header=None)  # Read file without assuming the first row is the header
+        df = pd.read_excel(file, header=None, dtype=str)  # Read file without assuming the first row is the header
         file_name = file.name  # Get file name
 
-        # Debugging: Show raw data
+        # Debugging: Show raw data preview
         st.write(f"Raw Data Preview for {file_name}:", df.head())
 
         # Find the first row that looks like column headers
         for i, row in df.iterrows():
-            if "LotR" in row.values or "Lot Rent" in row.values:
-                df.columns = df.iloc[i]  # Set this row as header
+            if any(isinstance(val, str) and ("lotr" in val.lower() or "lot rent" in val.lower()) for val in row.values):
+                df.columns = row  # Set this row as header
                 df = df[i + 1:].reset_index(drop=True)  # Remove rows above header
                 break
 
-        # Normalize column names
-        df.columns = df.columns.str.lower().str.strip()
+        # Convert column names to strings and normalize
+        df.columns = df.columns.astype(str).str.lower().str.strip()
 
-        # Handle missing 'LotR' column
+        # Handle potential variations of 'LotR' column name
         lotr_column = None
         for col in df.columns:
-            if "lotr" in col or "lot rent" in col:
+            if isinstance(col, str) and ("lotr" in col or "lot rent" in col):
                 lotr_column = col
                 break
 
         # Apply audit checks based on detected column names
         if lotr_column:
             df["Audit Result"] = "Valid"
-            df.loc[df[lotr_column] > 0, "Audit Result"] = "Check Utilities"
+            df.loc[df[lotr_column].astype(float) > 0, "Audit Result"] = "Check Utilities"
         else:
             df["Audit Result"] = "Column 'LotR' not found"
 
@@ -40,7 +40,7 @@ def process_charge_report(files):
     return results
 
 # Streamlit Web App UI
-st.title("Charge Breakdown Audit Bot - Header Fix Mode")
+st.title("Charge Breakdown Audit Bot - Column Fix Mode")
 st.write("Upload multiple charge breakdown reports to run an audit.")
 
 # Multiple file uploader
