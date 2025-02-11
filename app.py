@@ -21,7 +21,7 @@ def process_charge_report(files):
         # Convert column names to strings and normalize
         df.columns = df.columns.astype(str).str.lower().str.strip()
 
-        # Ensure all data is fully converted to strings
+        # Ensure all data is converted to strings
         df = df.astype(str).applymap(lambda x: x.strip() if isinstance(x, str) else "")
 
         # Remove non-printable characters and possible corrupt values
@@ -58,12 +58,15 @@ def process_charge_report(files):
         # Drop any problematic columns before displaying
         df = df.loc[:, df.columns.notna()]
 
+        # Ensure all columns are properly formatted as strings
+        df = df.astype(str)
+
         results.append((file_name, df))
     
     return results
 
 # Streamlit Web App UI
-st.title("Charge Breakdown Audit Bot - Refined Mode")
+st.title("Charge Breakdown Audit Bot - Final Sanitization Mode")
 st.write("Upload multiple charge breakdown reports to run an audit.")
 
 # Multiple file uploader
