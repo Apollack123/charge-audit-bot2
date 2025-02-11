@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import io
 
 # Function to process charge breakdown reports
 def process_charge_report(files):
@@ -64,6 +65,12 @@ def process_charge_report(files):
         # Ensure all columns are strings before passing to Streamlit
         df = df.astype(str)
 
+        # Convert dataframe to CSV first to fully eliminate PyArrow issues
+        csv_buffer = io.StringIO()
+        df.to_csv(csv_buffer, index=False)
+        csv_buffer.seek(0)
+        df = pd.read_csv(io.StringIO(csv_buffer.getvalue()), dtype=str)
+
         # Ensure empty dataframes don't break Streamlit
         if df.empty:
             df = pd.DataFrame({"Status": ["No Data Available"]})
@@ -73,7 +80,7 @@ def process_charge_report(files):
     return results
 
 # Streamlit Web App UI
-st.title("Charge Breakdown Audit Bot - Fully Resolved Mode")
+st.title("Charge Breakdown Audit Bot - PyArrow-Free Mode")
 st.write("Upload multiple charge breakdown reports to run an audit.")
 
 # Multiple file uploader
