@@ -64,12 +64,16 @@ def process_charge_report(files):
         # Ensure all columns are strings before passing to Streamlit
         df = df.astype(str)
 
+        # Ensure empty dataframes don't break Streamlit
+        if df.empty:
+            df = pd.DataFrame({"Status": ["No Data Available"]})
+
         results.append((file_name, df))
     
     return results
 
 # Streamlit Web App UI
-st.title("Charge Breakdown Audit Bot - Fully Normalized Mode")
+st.title("Charge Breakdown Audit Bot - Fully Resolved Mode")
 st.write("Upload multiple charge breakdown reports to run an audit.")
 
 # Multiple file uploader
