@@ -7,16 +7,24 @@ def process_charge_report(files):
     for file in files:
         df = pd.read_excel(file)  # Read the Excel file
         file_name = file.name  # Get file name
-        
-        # Debugging: Show column names
+
+        # Debugging: Show column names in Streamlit output
         st.write(f"Columns in {file_name}:", df.columns.tolist())
 
-        # Normalize column names to lowercase
-        df.columns = df.columns.str.lower()
+        # Normalize column names to lowercase and strip spaces
+        df.columns = df.columns.str.lower().str.strip()
 
-        # Handle missing or renamed 'LotR' column
-        if "lotr" in df.columns:
-            df.loc[df["lotr"] > 0, "Audit Result"] = "Check Utilities"
+        # Handle potential variations of 'LotR' column name
+        lotr_column = None
+        for col in df.columns:
+            if "lotr" in col or "lot rent" in col:
+                lotr_column = col
+                break
+
+        # Apply audit checks based on detected column names
+        if lotr_column:
+            df["Audit Result"] = "Valid"
+            df.loc[df[lotr_column] > 0, "Audit Result"] = "Check Utilities"
         else:
             df["Audit Result"] = "Column 'LotR' not found"
 
