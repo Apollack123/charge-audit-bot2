@@ -5,7 +5,7 @@ import pandas as pd
 def process_charge_report(files):
     results = []
     for file in files:
-        df = pd.read_excel(file, header=None, dtype=str, engine="openpyxl")  # Read file as strings to avoid type conflicts
+        df = pd.read_excel(file, header=None, dtype=str, engine="openpyxl")  # Read file as string
         file_name = file.name  # Get file name
 
         # Debugging: Show raw data preview
@@ -21,10 +21,10 @@ def process_charge_report(files):
         # Convert column names to strings and normalize
         df.columns = df.columns.astype(str).str.lower().str.strip()
 
-        # Ensure all data is converted to string format and clean it
+        # Ensure all data is fully converted to strings
         df = df.astype(str).applymap(lambda x: x.strip() if isinstance(x, str) else "")
 
-        # Remove non-printable characters and potential corrupt data
+        # Remove non-printable characters and possible corrupt values
         df.replace(r'[^ -~]', '', regex=True, inplace=True)
 
         # Drop any completely empty columns
@@ -40,19 +40,22 @@ def process_charge_report(files):
         # Apply audit checks based on detected column names
         if lotr_column:
             df["Audit Result"] = "Valid"
-            df.loc[df[lotr_column].str.replace(',', '').astype(float) > 0, "Audit Result"] = "Check Utilities"
+            df.loc[df[lotr_column].str.replace(',', '', regex=True).astype(float) > 0, "Audit Result"] = "Check Utilities"
         else:
             df["Audit Result"] = "Column 'LotR' not found"
 
         # Reset index to prevent Streamlit display errors
         df = df.reset_index(drop=True)
 
+        # Drop any problematic columns that could crash PyArrow
+        df = df.loc[:, df.columns.notna()]  # Drop NaN column names if any
+
         results.append((file_name, df))
     
     return results
 
 # Streamlit Web App UI
-st.title("Charge Breakdown Audit Bot - Full Type Enforcement")
+st.title("Charge Breakdown Audit Bot - Fully Cleaned Data Mode")
 st.write("Upload multiple charge breakdown reports to run an audit.")
 
 # Multiple file uploader
@@ -68,6 +71,9 @@ if uploaded_files:
         # Ensure Streamlit can safely display the dataframe
         df_safe = df.copy()
         df_safe = df_safe.astype(str)  # Convert everything to string format
+
+        # Drop any problematic columns before displaying
+        df_safe = df_safe.loc[:, df_safe.columns.notna()]
 
         st.dataframe(df_safe)  # Display processed data
         
