@@ -5,16 +5,23 @@ import pandas as pd
 def process_charge_report(files):
     results = []
     for file in files:
-        df = pd.read_excel(file)  # Read the Excel file
+        df = pd.read_excel(file, header=None)  # Read file without assuming the first row is the header
         file_name = file.name  # Get file name
 
-        # Debugging: Show column names in Streamlit output
-        st.write(f"Columns in {file_name}:", df.columns.tolist())
+        # Debugging: Show raw data
+        st.write(f"Raw Data Preview for {file_name}:", df.head())
 
-        # Normalize column names to lowercase and strip spaces
+        # Find the first row that looks like column headers
+        for i, row in df.iterrows():
+            if "LotR" in row.values or "Lot Rent" in row.values:
+                df.columns = df.iloc[i]  # Set this row as header
+                df = df[i + 1:].reset_index(drop=True)  # Remove rows above header
+                break
+
+        # Normalize column names
         df.columns = df.columns.str.lower().str.strip()
 
-        # Handle potential variations of 'LotR' column name
+        # Handle missing 'LotR' column
         lotr_column = None
         for col in df.columns:
             if "lotr" in col or "lot rent" in col:
@@ -33,7 +40,7 @@ def process_charge_report(files):
     return results
 
 # Streamlit Web App UI
-st.title("Charge Breakdown Audit Bot - Debug Mode")
+st.title("Charge Breakdown Audit Bot - Header Fix Mode")
 st.write("Upload multiple charge breakdown reports to run an audit.")
 
 # Multiple file uploader
