@@ -1,33 +1,36 @@
 import streamlit as st
 import pandas as pd
 
-# Function to process the uploaded charge breakdown report
-def process_charge_report(uploaded_file):
-    if uploaded_file is not None:
-        df = pd.read_excel(uploaded_file)  # Read the Excel file
+# Function to process charge breakdown reports
+def process_charge_report(files):
+    results = []
+    for file in files:
+        df = pd.read_excel(file)  # Read the Excel file
+        file_name = file.name  # Get file name
         
-        # Example audit logic (replace with actual logic)
+        # Example audit logic (replace with real logic)
         df["Audit Result"] = "Valid"
         df.loc[df["LotR"] > 0, "Audit Result"] = "Check Utilities"
         
-        return df
-    return None
+        results.append((file_name, df))
+    
+    return results
 
 # Streamlit Web App UI
 st.title("Charge Breakdown Audit Bot")
-st.write("Upload a charge breakdown report to run an audit.")
+st.write("Upload multiple charge breakdown reports to run an audit.")
 
-# File uploader
-uploaded_file = st.file_uploader("Upload Charge Breakdown Report (Excel)", type=["xls", "xlsx"])
+# Multiple file uploader
+uploaded_files = st.file_uploader("Upload Charge Breakdown Reports (Excel)", type=["xls", "xlsx"], accept_multiple_files=True)
 
-if uploaded_file:
-    st.write("Processing file...")
-    processed_data = process_charge_report(uploaded_file)
+if uploaded_files:
+    st.write("Processing files...")
+    processed_data = process_charge_report(uploaded_files)
     
-    if processed_data is not None:
-        st.write("Audit Results:")
-        st.dataframe(processed_data)  # Display processed data
+    for file_name, df in processed_data:
+        st.write(f"Audit Results for: {file_name}")
+        st.dataframe(df)  # Display processed data
         
         # Download button for audit results
-        csv = processed_data.to_csv(index=False).encode('utf-8')
-        st.download_button("Download Audit Report", data=csv, file_name="audit_results.csv", mime="text/csv")
+        csv = df.to_csv(index=False).encode('utf-8')
+        st.download_button(f"Download Audit Report for {file_name}", data=csv, file_name=f"{file_name}_audit.csv", mime="text/csv")
