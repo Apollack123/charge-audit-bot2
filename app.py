@@ -5,7 +5,7 @@ import pandas as pd
 def process_charge_report(files):
     results = []
     for file in files:
-        df = pd.read_excel(file, header=None, dtype=str)  # Read file without assuming the first row is the header
+        df = pd.read_excel(file, header=None, dtype=str, engine="openpyxl")  # Read file with string dtype
         file_name = file.name  # Get file name
 
         # Debugging: Show raw data preview
@@ -21,8 +21,11 @@ def process_charge_report(files):
         # Convert column names to strings and normalize
         df.columns = df.columns.astype(str).str.lower().str.strip()
 
-        # Ensure all data is string format to prevent Arrow conversion errors
-        df = df.astype(str)
+        # Ensure all data is converted to strings for compatibility
+        df = df.astype(str).applymap(lambda x: x.strip() if isinstance(x, str) else x)
+
+        # Drop any completely empty columns
+        df = df.dropna(axis=1, how="all")
 
         # Handle potential variations of 'LotR' column name
         lotr_column = None
@@ -38,12 +41,15 @@ def process_charge_report(files):
         else:
             df["Audit Result"] = "Column 'LotR' not found"
 
+        # Reset index to prevent display issues in Streamlit
+        df = df.reset_index(drop=True)
+
         results.append((file_name, df))
     
     return results
 
 # Streamlit Web App UI
-st.title("Charge Breakdown Audit Bot - Data Compatibility Mode")
+st.title("Charge Breakdown Audit Bot - Full Data Sanitization Mode")
 st.write("Upload multiple charge breakdown reports to run an audit.")
 
 # Multiple file uploader
@@ -55,11 +61,11 @@ if uploaded_files:
     
     for file_name, df in processed_data:
         st.write(f"Audit Results for: {file_name}")
-        
-        # Convert dataframe to be Streamlit-compatible before displaying
+
+        # Ensure Streamlit can safely display the dataframe
         df_safe = df.copy()
-        df_safe = df_safe.astype(str)  # Ensure all data is in string format
-        
+        df_safe = df_safe.astype(str)  # Convert everything to string format
+
         st.dataframe(df_safe)  # Display processed data
         
         # Download button for audit results
