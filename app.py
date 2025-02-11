@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import io
 
-# Function to process charge breakdown reports
+# Function to process charge breakdown reports with full audit checks
 def process_charge_report(files):
     results = []
     for file in files:
@@ -43,18 +43,27 @@ def process_charge_report(files):
 
         # Apply audit checks based on detected column names
         df["Audit Result"] = "✅ Passed"
+
+        # Check for missing LotR charges
         if lotr_column:
             df.loc[df[lotr_column].str.replace(',', '', regex=True).astype(float) == 0, "Audit Result"] = "⚠️ Missing LotR Charge"
         else:
             df["Audit Result"] = "⚠️ Column 'LotR' Not Found"
 
-        # Additional checks for missing utility fees
+        # Check for required utility charges
         if "sewer_fee" in df.columns:
             df.loc[df["sewer_fee"] == "", "Audit Result"] = "⚠️ Missing Sewer Fee"
         if "garbage_fee" in df.columns:
             df.loc[df["garbage_fee"] == "", "Audit Result"] = "⚠️ Missing Garbage Fee"
+
+        # Check for missing security deposit charges
         if "security_deposit" in df.columns:
             df.loc[df["security_deposit"] == "", "Audit Result"] = "⚠️ No Security Deposit"
+
+        # Check for unexpected charge variations
+        if "total_charges" in df.columns and "previous_charges" in df.columns:
+            df["charge_difference"] = df["total_charges"].astype(float) - df["previous_charges"].astype(float)
+            df.loc[abs(df["charge_difference"]) > 10, "Audit Result"] = "⚠️ Unexpected Charge Variation"
 
         # Reset index to prevent Streamlit display errors
         df = df.reset_index(drop=True)
@@ -80,7 +89,7 @@ def process_charge_report(files):
     return results
 
 # Streamlit Web App UI
-st.title("Charge Breakdown Audit Bot - PyArrow-Free Mode")
+st.title("Charge Breakdown Audit Bot - Full Audit Mode")
 st.write("Upload multiple charge breakdown reports to run an audit.")
 
 # Multiple file uploader
