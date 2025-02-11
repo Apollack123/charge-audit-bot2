@@ -21,8 +21,11 @@ def process_charge_report(files):
         # Convert column names to strings and normalize
         df.columns = df.columns.astype(str).str.lower().str.strip()
 
-        # Ensure all data is converted to strings
+        # Ensure all data is fully converted to strings
         df = df.astype(str).applymap(lambda x: x.strip() if isinstance(x, str) else "")
+
+        # Replace NaN values with empty strings to prevent crashes
+        df.fillna("", inplace=True)
 
         # Remove non-printable characters and possible corrupt values
         df.replace(r'[^ -~]', '', regex=True, inplace=True)
@@ -46,11 +49,11 @@ def process_charge_report(files):
 
         # Additional checks for missing utility fees
         if "sewer_fee" in df.columns:
-            df.loc[df["sewer_fee"].isna(), "Audit Result"] = "⚠️ Missing Sewer Fee"
+            df.loc[df["sewer_fee"] == "", "Audit Result"] = "⚠️ Missing Sewer Fee"
         if "garbage_fee" in df.columns:
-            df.loc[df["garbage_fee"].isna(), "Audit Result"] = "⚠️ Missing Garbage Fee"
+            df.loc[df["garbage_fee"] == "", "Audit Result"] = "⚠️ Missing Garbage Fee"
         if "security_deposit" in df.columns:
-            df.loc[df["security_deposit"].isna(), "Audit Result"] = "⚠️ No Security Deposit"
+            df.loc[df["security_deposit"] == "", "Audit Result"] = "⚠️ No Security Deposit"
 
         # Reset index to prevent Streamlit display errors
         df = df.reset_index(drop=True)
@@ -58,7 +61,7 @@ def process_charge_report(files):
         # Drop any problematic columns before displaying
         df = df.loc[:, df.columns.notna()]
 
-        # Ensure all columns are properly formatted as strings
+        # Ensure all columns are strings before passing to Streamlit
         df = df.astype(str)
 
         results.append((file_name, df))
@@ -66,7 +69,7 @@ def process_charge_report(files):
     return results
 
 # Streamlit Web App UI
-st.title("Charge Breakdown Audit Bot - Final Sanitization Mode")
+st.title("Charge Breakdown Audit Bot - Fully Normalized Mode")
 st.write("Upload multiple charge breakdown reports to run an audit.")
 
 # Multiple file uploader
@@ -81,10 +84,6 @@ if uploaded_files:
 
         # Ensure Streamlit can safely display the dataframe
         df_safe = df.copy()
-        df_safe = df_safe.astype(str)  # Convert everything to string format
-
-        # Drop any problematic columns before displaying
-        df_safe = df_safe.loc[:, df_safe.columns.notna()]
 
         st.dataframe(df_safe)  # Display processed data
         
