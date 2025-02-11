@@ -14,12 +14,15 @@ def process_charge_report(files):
         # Find the first row that looks like column headers
         for i, row in df.iterrows():
             if any(isinstance(val, str) and ("lotr" in val.lower() or "lot rent" in val.lower()) for val in row.values):
-                df.columns = row  # Set this row as header
+                df.columns = row.astype(str)  # Set this row as header
                 df = df[i + 1:].reset_index(drop=True)  # Remove rows above header
                 break
 
         # Convert column names to strings and normalize
         df.columns = df.columns.astype(str).str.lower().str.strip()
+
+        # Ensure all data is string format to prevent Arrow conversion errors
+        df = df.astype(str)
 
         # Handle potential variations of 'LotR' column name
         lotr_column = None
@@ -31,7 +34,7 @@ def process_charge_report(files):
         # Apply audit checks based on detected column names
         if lotr_column:
             df["Audit Result"] = "Valid"
-            df.loc[df[lotr_column].astype(float) > 0, "Audit Result"] = "Check Utilities"
+            df.loc[df[lotr_column].str.replace(',', '').astype(float) > 0, "Audit Result"] = "Check Utilities"
         else:
             df["Audit Result"] = "Column 'LotR' not found"
 
@@ -40,7 +43,7 @@ def process_charge_report(files):
     return results
 
 # Streamlit Web App UI
-st.title("Charge Breakdown Audit Bot - Column Fix Mode")
+st.title("Charge Breakdown Audit Bot - Data Compatibility Mode")
 st.write("Upload multiple charge breakdown reports to run an audit.")
 
 # Multiple file uploader
@@ -52,8 +55,13 @@ if uploaded_files:
     
     for file_name, df in processed_data:
         st.write(f"Audit Results for: {file_name}")
-        st.dataframe(df)  # Display processed data
+        
+        # Convert dataframe to be Streamlit-compatible before displaying
+        df_safe = df.copy()
+        df_safe = df_safe.astype(str)  # Ensure all data is in string format
+        
+        st.dataframe(df_safe)  # Display processed data
         
         # Download button for audit results
-        csv = df.to_csv(index=False).encode('utf-8')
+        csv = df_safe.to_csv(index=False).encode('utf-8')
         st.download_button(f"Download Audit Report for {file_name}", data=csv, file_name=f"{file_name}_audit.csv", mime="text/csv")
