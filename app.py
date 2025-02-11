@@ -38,24 +38,32 @@ def process_charge_report(files):
                 break
 
         # Apply audit checks based on detected column names
+        df["Audit Result"] = "✅ Passed"
         if lotr_column:
-            df["Audit Result"] = "Valid"
-            df.loc[df[lotr_column].str.replace(',', '', regex=True).astype(float) > 0, "Audit Result"] = "Check Utilities"
+            df.loc[df[lotr_column].str.replace(',', '', regex=True).astype(float) == 0, "Audit Result"] = "⚠️ Missing LotR Charge"
         else:
-            df["Audit Result"] = "Column 'LotR' not found"
+            df["Audit Result"] = "⚠️ Column 'LotR' Not Found"
+
+        # Additional checks for missing utility fees
+        if "sewer_fee" in df.columns:
+            df.loc[df["sewer_fee"].isna(), "Audit Result"] = "⚠️ Missing Sewer Fee"
+        if "garbage_fee" in df.columns:
+            df.loc[df["garbage_fee"].isna(), "Audit Result"] = "⚠️ Missing Garbage Fee"
+        if "security_deposit" in df.columns:
+            df.loc[df["security_deposit"].isna(), "Audit Result"] = "⚠️ No Security Deposit"
 
         # Reset index to prevent Streamlit display errors
         df = df.reset_index(drop=True)
 
-        # Drop any problematic columns that could crash PyArrow
-        df = df.loc[:, df.columns.notna()]  # Drop NaN column names if any
+        # Drop any problematic columns before displaying
+        df = df.loc[:, df.columns.notna()]
 
         results.append((file_name, df))
     
     return results
 
 # Streamlit Web App UI
-st.title("Charge Breakdown Audit Bot - Fully Cleaned Data Mode")
+st.title("Charge Breakdown Audit Bot - Refined Mode")
 st.write("Upload multiple charge breakdown reports to run an audit.")
 
 # Multiple file uploader
