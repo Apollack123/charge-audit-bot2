@@ -5,7 +5,7 @@ import pandas as pd
 def process_charge_report(files):
     results = []
     for file in files:
-        df = pd.read_excel(file, header=None, dtype=str, engine="openpyxl")  # Read file with string dtype
+        df = pd.read_excel(file, header=None, dtype=str, engine="openpyxl")  # Read file as strings to avoid type conflicts
         file_name = file.name  # Get file name
 
         # Debugging: Show raw data preview
@@ -21,8 +21,11 @@ def process_charge_report(files):
         # Convert column names to strings and normalize
         df.columns = df.columns.astype(str).str.lower().str.strip()
 
-        # Ensure all data is converted to strings for compatibility
-        df = df.astype(str).applymap(lambda x: x.strip() if isinstance(x, str) else x)
+        # Ensure all data is converted to string format and clean it
+        df = df.astype(str).applymap(lambda x: x.strip() if isinstance(x, str) else "")
+
+        # Remove non-printable characters and potential corrupt data
+        df.replace(r'[^ -~]', '', regex=True, inplace=True)
 
         # Drop any completely empty columns
         df = df.dropna(axis=1, how="all")
@@ -41,7 +44,7 @@ def process_charge_report(files):
         else:
             df["Audit Result"] = "Column 'LotR' not found"
 
-        # Reset index to prevent display issues in Streamlit
+        # Reset index to prevent Streamlit display errors
         df = df.reset_index(drop=True)
 
         results.append((file_name, df))
@@ -49,7 +52,7 @@ def process_charge_report(files):
     return results
 
 # Streamlit Web App UI
-st.title("Charge Breakdown Audit Bot - Full Data Sanitization Mode")
+st.title("Charge Breakdown Audit Bot - Full Type Enforcement")
 st.write("Upload multiple charge breakdown reports to run an audit.")
 
 # Multiple file uploader
