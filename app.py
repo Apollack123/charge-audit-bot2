@@ -31,46 +31,63 @@ def process_charge_report(charge_files, move_in_out_file):
         # Handle LotR column detection safely
         lotr_column = next((col for col in df.columns if isinstance(col, str) and ("lotr" in col or "lot rent" in col or "base rent" in col)), None)
         
-        # Apply audit checks
-        df["Audit Result"] = "✅ Passed"
-        
-        # Check for missing LotR charges
-        if lotr_column:
-            df.loc[df[lotr_column].str.replace(',', '', regex=True).astype(float) == 0, "Audit Result"] = "⚠️ Missing LotR Charge"
-        else:
-            df["Audit Result"] = "⚠️ Column 'LotR' Not Found"
-        
-        # Verify Move-In/Move-Out alignment
-        if "unit" in df.columns and "move_in_date" in move_in_out_df.columns:
-            df = df.merge(move_in_out_df[["unit", "move_in_date"]], on="unit", how="left")
-            
-            base_rent = 420.00  # Assuming base rent is $420
-            
-            for index, row in df.iterrows():
-                try:
-                    move_in_date = pd.to_datetime(row["move_in_date"], errors='coerce')
-                    if pd.notna(move_in_date):
-                        days_in_month = move_in_date.days_in_month
-                        days_not_in_unit = move_in_date.day - 1
-                        expected_rent = base_rent - ((base_rent / days_in_month) * days_not_in_unit)
-                        df.at[index, "expected_prorated_rent"] = round(expected_rent, 2)
+        # Create structured audit output table
+        audit_df = pd.DataFrame(columns=[
+            "Unit", "Tenant", "Move-In Date", "Lot Rent Charged ($)",
+            "Expected Prorated Rent ($)", "Prorated Rent Status", "Security Deposit Charged?",
+            "Missing Utilities?", "Unexpected Charge Variations?", "Audit Notes"
+        ])
 
-                        actual_rent = float(row[lotr_column].replace(",", ""))
-                        if round(expected_rent, 2) != actual_rent:
-                            df.at[index, "Audit Result"] = "⚠️ Prorated Rent Mismatch"
-                except Exception:
-                    df.at[index, "expected_prorated_rent"] = "Error"
+        # Process each row in the charge breakdown report
+        for _, row in df.iterrows():
+            unit = row.get("unit", "N/A")
+            tenant = row.get("tenant", "N/A")
+            move_in_date = row.get("move_in_date", "N/A")
+            lot_rent = row.get(lotr_column, "0").replace(",", "")
+            security_deposit = row.get("security_deposit", "0")
+            sewer_fee = row.get("sewer_fee", "0")
+            garbage_fee = row.get("garbage_fee", "0")
+
+            # Calculate expected prorated rent
+            base_rent = 420.00  # Assuming base rent is $420
+            expected_rent = "N/A"
+            prorated_status = "N/A"
+
+            try:
+                move_in_dt = pd.to_datetime(move_in_date, errors='coerce')
+                if pd.notna(move_in_dt):
+                    days_in_month = move_in_dt.days_in_month
+                    days_not_in_unit = move_in_dt.day - 1
+                    expected_rent = base_rent - ((base_rent / days_in_month) * days_not_in_unit)
+                    expected_rent = round(expected_rent, 2)
+
+                    if abs(expected_rent - float(lot_rent)) > 1:
+                        prorated_status = "⚠️ Mismatch"
+                    else:
+                        prorated_status = "✅ Correct"
+            except:
+                expected_rent = "Error"
+
+            # Check utilities
+            missing_utilities = "✅ No"
+            if float(sewer_fee) == 0 or float(garbage_fee) == 0:
+                missing_utilities = "⚠️ Yes"
+
+            # Check security deposit
+            security_deposit_status = "✅ Yes" if float(security_deposit) > 0 else "⚠️ No"
+
+            # Add row to audit DataFrame
+            audit_df.loc[len(audit_df)] = [
+                unit, tenant, move_in_date, lot_rent, expected_rent,
+                prorated_status, security_deposit_status, missing_utilities, "✅ No", ""
+            ]
         
-        # Ensure expected vs. actual security deposit validation
-        if "security_deposit" in df.columns:
-            df.loc[df["security_deposit"].astype(float) == 0, "Audit Result"] = "⚠️ No Security Deposit"
-        
-        results.append((file_name, df))
+        results.append((file_name, audit_df))
     
     return results
 
 # Streamlit Web App UI
-st.title("Charge Breakdown Audit Bot - Final Version")
+st.title("Charge Breakdown Audit Bot - Structured Report Mode")
 st.write("Upload charge breakdown reports along with the Move-In/Move-Out report for a full audit.")
 
 # Multiple file uploader for charge breakdowns
@@ -85,7 +102,7 @@ if charge_uploaded_files and move_in_out_uploaded_file:
     
     for file_name, df in processed_data:
         st.write(f"Audit Results for: {file_name}")
-        st.dataframe(df)  # Display processed data
+        st.dataframe(df)  # Display structured audit table
         
         # Download button for audit results
         csv = df.to_csv(index=False).encode('utf-8')
