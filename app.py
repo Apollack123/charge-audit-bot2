@@ -70,7 +70,7 @@ def process_charge_report(charge_files, move_in_out_file):
     return results
 
 # Streamlit Web App UI
-st.title("Charge Breakdown Audit Bot - Fully Integrated Mode")
+st.title("Charge Breakdown Audit Bot - Final Version")
 st.write("Upload charge breakdown reports along with the Move-In/Move-Out report for a full audit.")
 
 # Multiple file uploader for charge breakdowns
