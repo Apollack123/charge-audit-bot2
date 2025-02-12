@@ -14,9 +14,12 @@ def process_charge_report(charge_files, move_in_out_file):
         df = pd.read_excel(file, dtype=str, engine="openpyxl")  # Read file as string
         file_name = file.name  # Get file name
 
-        # Normalize column names
+        # Normalize column names and remove duplicate columns
         df.columns = df.iloc[2].astype(str).str.lower().str.strip()  # Use third row as header to avoid metadata
         df = df[3:].reset_index(drop=True)  # Remove unnecessary rows
+        
+        # Drop duplicate column names
+        df = df.loc[:, ~df.columns.duplicated()]
         
         # Ensure all column names are strings and not None
         df.columns = df.columns.astype(str)
