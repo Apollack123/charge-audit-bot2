@@ -15,14 +15,15 @@ def process_charge_report(charge_files, move_in_out_file):
         file_name = file.name  # Get file name
 
         # Normalize column names
-        df.columns = df.columns.str.lower().str.strip()
+        df.columns = df.iloc[2].str.lower().str.strip()  # Use third row as header to avoid metadata
+        df = df[3:].reset_index(drop=True)  # Remove unnecessary rows
         
         # Ensure all data is fully converted to strings
         df = df.astype(str).applymap(lambda x: x.strip() if isinstance(x, str) else "")
         df.fillna("", inplace=True)
 
         # Handle LotR column detection
-        lotr_column = next((col for col in df.columns if "lotr" in col or "lot rent" in col), None)
+        lotr_column = next((col for col in df.columns if "lotr" in col or "lot rent" in col or "base rent" in col), None)
         
         # Apply audit checks
         df["Audit Result"] = "✅ Passed"
@@ -53,6 +54,10 @@ def process_charge_report(charge_files, move_in_out_file):
                             df.at[index, "Audit Result"] = "⚠️ Prorated Rent Mismatch"
                 except Exception:
                     df.at[index, "expected_prorated_rent"] = "Error"
+        
+        # Ensure expected vs. actual security deposit validation
+        if "security_deposit" in df.columns:
+            df.loc[df["security_deposit"].astype(float) == 0, "Audit Result"] = "⚠️ No Security Deposit"
         
         results.append((file_name, df))
     
