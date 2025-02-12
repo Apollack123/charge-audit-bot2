@@ -15,15 +15,18 @@ def process_charge_report(charge_files, move_in_out_file):
         file_name = file.name  # Get file name
 
         # Normalize column names
-        df.columns = df.iloc[2].str.lower().str.strip()  # Use third row as header to avoid metadata
+        df.columns = df.iloc[2].astype(str).str.lower().str.strip()  # Use third row as header to avoid metadata
         df = df[3:].reset_index(drop=True)  # Remove unnecessary rows
+        
+        # Ensure all column names are strings and not None
+        df.columns = df.columns.astype(str)
         
         # Ensure all data is fully converted to strings
         df = df.astype(str).applymap(lambda x: x.strip() if isinstance(x, str) else "")
         df.fillna("", inplace=True)
 
-        # Handle LotR column detection
-        lotr_column = next((col for col in df.columns if "lotr" in col or "lot rent" in col or "base rent" in col), None)
+        # Handle LotR column detection safely
+        lotr_column = next((col for col in df.columns if isinstance(col, str) and ("lotr" in col or "lot rent" in col or "base rent" in col)), None)
         
         # Apply audit checks
         df["Audit Result"] = "✅ Passed"
